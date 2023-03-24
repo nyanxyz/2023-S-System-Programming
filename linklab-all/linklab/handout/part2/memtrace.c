@@ -59,10 +59,18 @@ void fini(void)
 
   LOG_STATISTICS(n_allocb, avg_allocb, n_freeb);
 
-  LOG_NONFREED_START();
-  item *curr = list;
+  int did_print_start = 0;
+
+  item *curr = list->next;
   while (curr != NULL) {
-    LOG_BLOCK(curr->ptr, curr->size, curr->cnt);
+    if (curr->cnt > 0) {
+      if (!did_print_start) {
+        LOG_NONFREED_START();
+        did_print_start = 1;
+      }
+
+      LOG_BLOCK(curr->ptr, curr->size, curr->cnt);
+    }
     curr = curr->next;
   }
 

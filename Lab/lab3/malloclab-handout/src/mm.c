@@ -44,8 +44,11 @@
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous free blocks */
-#define SUCP(bp) (*(void **)(bp))
-#define PREP(bp) (*(void **)(bp + WSIZE))
+#define NEXT_FREE_BLKP(bp) (*(char **)(bp))
+#define PREV_FREE_BLKP(bp) (*(char **)(bp + WSIZE))
+
+#define SET_NEXT_FREE_BLKP(bp, next) (NEXT_FREE_BLKP(bp) = (char *)next)
+#define SET_PREV_FREE_BLKP(bp, prev) (PREV_FREE_BLKP(bp) = (char *)prev)
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -243,7 +246,7 @@ static void *find_fit(size_t size)
     // printf("find_fit\n");
     void *bp;
 
-    for (bp = free_listp; GET_ALLOC(HDRP(bp)) == 0; bp = SUCP(bp)) {
+    for (bp = free_listp; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREE_BLKP(bp)) {
         if (GET_SIZE(HDRP(bp)) >= size) {
             return bp;
         }
@@ -276,11 +279,11 @@ static void place(void *bp, size_t asize)
 static void insert_free_block(char *bp)
 {
     // printf("insert_free_block\n");
-    PREP(bp) = NULL;
-    SUCP(bp) = free_listp;
+    SET_PREV_FREE_BLKP(bp, NULL);
+    SET_NEXT_FREE_BLKP(bp, free_listp);
 
     if (free_listp != NULL) {
-        PREP(free_listp) = bp;
+        SET_PREV_FREE_BLKP(free_listp, bp);
     }
 
     free_listp = bp;
@@ -289,14 +292,14 @@ static void insert_free_block(char *bp)
 static void remove_free_block(char *bp)
 {
     // printf("remove_free_block\n");
-    if (PREP(bp)) {
-        SUCP(PREP(bp)) = SUCP(bp);
+    if (PREV_FREE_BLKP(bp)) {
+        SET_NEXT_FREE_BLKP(PREV_FREE_BLKP(bp), NEXT_FREE_BLKP(bp));
     } else {
-        free_listp = SUCP(bp);
+        free_listp = NEXT_FREE_BLKP(bp);
     }
 
-    if (SUCP(bp)) {
-        PREP(SUCP(bp)) = PREP(bp);
+    if (NEXT_FREE_BLKP(bp)) {
+        SET_PREV_FREE_BLKP(NEXT_FREE_BLKP(bp), PREV_FREE_BLKP(bp));
     }
 }
 
@@ -308,7 +311,7 @@ int mm_check(void)
     int count_heap = 0;
 
     // Check free list for consistency
-    for (bp = free_listp; bp != NULL; bp = SUCP(bp)) {
+    for (bp = free_listp; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
         count_freelist++;
         // Check if the block is marked as free
         if (GET_ALLOC(HDRP(bp))) {

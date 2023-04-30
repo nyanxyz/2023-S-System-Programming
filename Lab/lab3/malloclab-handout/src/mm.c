@@ -69,7 +69,7 @@ int mm_check(void);
 
 /* Global variables */
 static char *heap_listp = NULL;
-static char *free_listp = NULL;
+static char *freelist_head = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -88,7 +88,7 @@ int mm_init(void)
     PUT(heap_listp + (4 * WSIZE), PACK(2 * DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (5 * WSIZE), PACK(0, 1));     /* Epilogue header */
 
-    free_listp = heap_listp + DSIZE;
+    freelist_head = heap_listp + DSIZE;
 
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
@@ -246,7 +246,7 @@ static void *find_fit(size_t size)
     // printf("find_fit\n");
     void *bp;
 
-    for (bp = free_listp; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREE_BLKP(bp)) {
+    for (bp = freelist_head; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREE_BLKP(bp)) {
         if (GET_SIZE(HDRP(bp)) >= size) {
             return bp;
         }
@@ -280,13 +280,13 @@ static void insert_free_block(char *bp)
 {
     // printf("insert_free_block\n");
     SET_PREV_FREE_BLKP(bp, NULL);
-    SET_NEXT_FREE_BLKP(bp, free_listp);
+    SET_NEXT_FREE_BLKP(bp, freelist_head);
 
-    if (free_listp != NULL) {
-        SET_PREV_FREE_BLKP(free_listp, bp);
+    if (freelist_head != NULL) {
+        SET_PREV_FREE_BLKP(freelist_head, bp);
     }
 
-    free_listp = bp;
+    freelist_head = bp;
 }
 
 static void remove_free_block(char *bp)
@@ -295,7 +295,7 @@ static void remove_free_block(char *bp)
     if (PREV_FREE_BLKP(bp)) {
         SET_NEXT_FREE_BLKP(PREV_FREE_BLKP(bp), NEXT_FREE_BLKP(bp));
     } else {
-        free_listp = NEXT_FREE_BLKP(bp);
+        freelist_head = NEXT_FREE_BLKP(bp);
     }
 
     if (NEXT_FREE_BLKP(bp)) {
@@ -311,7 +311,7 @@ int mm_check(void)
     int count_heap = 0;
 
     // Check free list for consistency
-    for (bp = free_listp; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
+    for (bp = freelist_head; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
         count_freelist++;
         // Check if the block is marked as free
         if (GET_ALLOC(HDRP(bp))) {

@@ -51,12 +51,6 @@
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-typedef struct mm_block {
-    size_t size; // 블록 크기와 할당 상태를 저장하는 헤더
-    struct mm_block *next; // 다음 빈 블록의 주소를 저장하는 포인터
-    struct mm_block *prev; // 이전 빈 블록의 주소를 저장하는 포인터
-} mm_block;
-
 static void *extend_heap(size_t words);
 static void *find_fit(size_t size);
 static void place(void *bp, size_t size);
@@ -64,11 +58,8 @@ static void *coalesce(void *bp);
 
 int mm_check(void);
 
-static mm_block *free_list_head = NULL;
-static mm_block *free_list_tail = NULL;
-
 /* Global variables */
-// static char *heap_listp = NULL;
+static char *heap_listp = NULL;
 
 /* place - Place the requested block and remove it from the free list */
 static void place(void *bp, size_t asize)

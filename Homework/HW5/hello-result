@@ -34,7 +34,6 @@ newfstatat(1, "", {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}, AT_EMPT
 getrandom("\xe1\x06\xf6\x36\xc9\xbb\xcd\x36", 8, GRND_NONBLOCK) = 8
 brk(NULL)                               = 0x557e7e99b000
 brk(0x557e7e9bc000)                     = 0x557e7e9bc000
-write(1, "hello\n", 6hello
-)                  = 6
+write(1, "hello\n", 6)                  = 6
 exit_group(0)                           = ?
 +++ exited with 0 +++

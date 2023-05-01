@@ -18,6 +18,23 @@
 #include "mm.h"
 #include "memlib.h"
 
+/*********************************************************
+ * NOTE TO STUDENTS: Before you do anything else, please
+ * provide your information in the following struct.
+ ********************************************************/
+team_t team = {
+    /* Team name : Your student ID */
+    "2019-11730",
+    /* Your full name */
+    "Hyeonji Shin",
+    /* Your student ID */
+    "2019-11730",
+    /* leave blank */
+    "",
+    /* leave blank */
+    ""
+};
+
 #define WSIZE 4 /* Word and header/footer size (bytes) */
 #define DSIZE 8 /* Double word size (bytes) */
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */

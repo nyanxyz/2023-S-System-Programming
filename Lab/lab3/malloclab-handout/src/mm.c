@@ -122,7 +122,7 @@ int mm_init(void)
         return -1;
     }
 
-    mm_check();
+    // mm_check();
     return 0;
 }
 
@@ -146,11 +146,7 @@ void *mm_malloc(size_t size)
         return NULL;
     }
 
-    if (size <= DSIZE) {
-        asize = 2 * DSIZE;
-    } else {
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-    }
+    asize = ALIGN(size + SIZE_T_SIZE);
 
     if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
@@ -163,7 +159,7 @@ void *mm_malloc(size_t size)
     }
     place(bp, asize);
 
-    mm_check();
+    // mm_check();
     return bp;
 }
 
@@ -184,7 +180,7 @@ void mm_free(void *ptr)
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
 
-    mm_check();
+    // mm_check();
 }
 
 /*
@@ -227,7 +223,7 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
 
-    mm_check();
+    // mm_check();
     return newptr;
 }
 

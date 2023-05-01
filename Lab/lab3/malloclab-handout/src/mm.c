@@ -87,7 +87,7 @@ static void *coalesce(void *bp);
 static void insert_free_block(char *bp);
 static void remove_free_block(char *bp);
 
-int mm_check(void);
+static int mm_check(void);
 
 /* Global variables */
 static char *heap_listp = NULL;
@@ -96,18 +96,16 @@ static char *freelist_head = NULL;
 /* 
  * mm_init - Initialize the memory allocator.
  * This function is responsible for setting up the initial empty heap and
- * extending it with a free block of CHUNKSIZE bytes. It initializes the
- * global pointers and creates the prologue and epilogue headers. Returns 0
- * on successful initialization and -1 on failure.
+ * extending it with a free block of CHUNKSIZE bytes. It initializes the return coalesce(bp);
  */
 int mm_init(void)
 {
-    // printf("init\n");
-
-    /* Create the initial empty heap */
+    // Allocate initial heap space
     if ((heap_listp = mem_sbrk(6 * WSIZE)) == (void *)-1) {
         return -1;
     }
+
+    // Set up prologue and epilogue blocks
     PUT(heap_listp, 0);                                /* Alignment padding */
     PUT(heap_listp + (1 * WSIZE), PACK(2 * DSIZE, 1)); /* Prologue header */
     PUT(heap_listp + (2 * WSIZE), (int)NULL);          /* Prev free block */
@@ -115,14 +113,15 @@ int mm_init(void)
     PUT(heap_listp + (4 * WSIZE), PACK(2 * DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (5 * WSIZE), PACK(0, 1));         /* Epilogue header */
 
-    freelist_head = heap_listp + DSIZE;
+    heap_listp += (2 * WSIZE); // Move heap pointer past prologue blocks
+    freelist_head = heap_listp; // Set the head of the free list
 
-    /* Extend the empty heap with a free block of CHUNKSIZE bytes */
+    // Extend heap
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
         return -1;
     }
 
-    // mm_check();
+    // mm_check(); // Debugging tool to check for heap consistency
     return 0;
 }
 
@@ -136,8 +135,6 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-    // printf("malloc\n");
-
     size_t asize;
     size_t extendsize;
     char *bp;
@@ -146,20 +143,23 @@ void *mm_malloc(size_t size)
         return NULL;
     }
 
+    // Adjust block size to include overhead and alignment reqs.
     asize = ALIGN(size + SIZE_T_SIZE);
 
+    // Search the free list for a fit
     if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
         return bp;
     }
 
+    // No fit found. Get more memory and place the block
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize / WSIZE)) == NULL) {
         return NULL;
     }
     place(bp, asize);
 
-    // mm_check();
+    // mm_check(); // Debugging tool to check for heap consistency
     return bp;
 }
 
@@ -172,15 +172,16 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-    // printf("free\n");
-
     size_t size = GET_SIZE(HDRP(ptr));
 
+    // Mark block as free
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
+
+    // Coalesce if the previous block was free
     coalesce(ptr);
 
-    // mm_check();
+    // mm_check(); // Debugging tool to check for heap consistency
 }
 
 /*
@@ -195,16 +196,16 @@ void mm_free(void *ptr)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    // printf("realloc\n");
-
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
 
+    // If ptr is NULL, the call is equivalent to mm_malloc(size)
     if (ptr == NULL) {
         return mm_malloc(size);
     }
 
+    // If size is equal to zero, the call is equivalent to mm_free(ptr)
     if (size == 0) {
         mm_free(ptr);
         return NULL;
@@ -220,20 +221,23 @@ void *mm_realloc(void *ptr, size_t size)
         copySize = size;
     }
 
+    // Copy the data from oldptr to newptr
     memcpy(newptr, oldptr, copySize);
+    // Free the old block
     mm_free(oldptr);
 
-    // mm_check();
+    // mm_check(); // Debugging tool to check for heap consistency
     return newptr;
 }
+
+
+// ==================== Helper functions ==================== //
 
 /*
  * extend_heap - Extends the heap and initializes the new free block.
  */
 static void *extend_heap(size_t words)
 {
-    // printf("extend_heap\n");
-
     char *bp;
     size_t size;
 
@@ -257,12 +261,11 @@ static void *extend_heap(size_t words)
  */
 static void *coalesce(void *bp)
 {
-    // printf("coalesce\n");
-
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
     
+    // Case 1: Both previous and next blocks are allocated
     if (prev_alloc && !next_alloc) { // Case 2: Previous block is allocated, next block is free
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         remove_free_block(NEXT_BLKP(bp));
@@ -296,9 +299,9 @@ static void *coalesce(void *bp)
  */
 static void *find_fit(size_t size)
 {
-    // printf("find_fit\n");
     void *bp;
 
+    // First-fit search
     for (bp = freelist_head; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREE_BLKP(bp)) {
         if (GET_SIZE(HDRP(bp)) >= size) {
             return bp;
@@ -313,11 +316,12 @@ static void *find_fit(size_t size)
  */
 static void place(void *bp, size_t asize)
 {
-    // printf("place\n");
     size_t csize = GET_SIZE(HDRP(bp));
 
+    // Remove the block from the free list
     remove_free_block(bp);
 
+    // If the remainder would be at least the minimum block size, split the block
     if ((csize - asize) >= (2 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
@@ -336,7 +340,6 @@ static void place(void *bp, size_t asize)
  */
 static void insert_free_block(char *bp)
 {
-    // printf("insert_free_block\n");
     SET_PREV_FREE_BLKP(bp, NULL);
     SET_NEXT_FREE_BLKP(bp, freelist_head);
 
@@ -352,7 +355,6 @@ static void insert_free_block(char *bp)
  */
 static void remove_free_block(char *bp)
 {
-    // printf("remove_free_block\n");
     if (PREV_FREE_BLKP(bp)) {
         SET_NEXT_FREE_BLKP(PREV_FREE_BLKP(bp), NEXT_FREE_BLKP(bp));
     } else {
@@ -364,25 +366,41 @@ static void remove_free_block(char *bp)
     }
 }
 
+
 // ==================== Heap Check functions ==================== //
 
-/* Check if a pointer is within the heap range */
+/* in_heap - Check if a pointer is within the heap range */
 static int in_heap(void *ptr) {
     return (ptr >= mem_heap_lo() && ptr <= mem_heap_hi());
 }
 
-/* Check if a pointer is aligned */
+/* aligned - Check if a pointer is aligned */
 static int aligned(void *ptr) {
     return ((size_t)ptr % DSIZE == 0);
 }
 
-int mm_check(void)
+/*
+ * Perform a set of checks to verify that the heap is consistent.
+ *
+ * To use this function, simply call it from within mm_init, mm_malloc, mm_free, or mm_realloc
+ * by uncommenting the function call.
+ * 
+ * Specifically, check for:
+ * Allocated blocks in the free list
+ * Contiguous free blocks that escaped coalescing
+ * Free blocks not actually in the free list
+ * Pointers in the free list that don't point to valid free blocks
+ * Allocated blocks that overlap
+ * Pointers in heap blocks that don't point to valid heap addresses
+ *
+ * @return 1 if the heap is consistent, 0 otherwise.
+ */
+static int mm_check(void)
 {
-    // printf("mm_check\n");
     void *bp;
 
     // Check if every block in the free list is marked as free
-    for (bp = freelist_head; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
+    for (bp = freelist_head; NEXT_FREE_BLKP(bp) != NULL; bp = NEXT_FREE_BLKP(bp)) {
         if (GET_ALLOC(HDRP(bp)) != 0) {
             printf("Error: Allocated block in the free list.\n");
             return 0;
@@ -402,12 +420,13 @@ int mm_check(void)
         if (!GET_ALLOC(HDRP(bp))) {
             void *fp;
             int found = 0;
-            for (fp = freelist_head; fp != NULL; fp = NEXT_FREE_BLKP(fp)) {
+            for (fp = freelist_head; NEXT_FREE_BLKP(fp) != NULL; fp = NEXT_FREE_BLKP(fp)) {
                 if (fp == bp) {
                     found = 1;
                     break;
                 }
             }
+
             if (!found) {
                 printf("Error: Free block not in the free list.\n");
                 return 0;
@@ -416,7 +435,7 @@ int mm_check(void)
     }
 
     // Check if pointers in the free list point to valid free blocks
-    for (bp = freelist_head; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
+    for (bp = freelist_head; NEXT_FREE_BLKP(bp) != NULL; bp = NEXT_FREE_BLKP(bp)) {
         if (!in_heap(bp) || !aligned(bp)) {
             printf("Error: Pointer in the free list is not a valid free block.\n");
             return 0;

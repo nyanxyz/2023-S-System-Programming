@@ -122,7 +122,7 @@ int mm_init(void)
         return -1;
     }
 
-    // mm_check();
+    mm_check();
     return 0;
 }
 
@@ -163,7 +163,7 @@ void *mm_malloc(size_t size)
     }
     place(bp, asize);
 
-    // mm_check();
+    mm_check();
     return bp;
 }
 
@@ -184,7 +184,7 @@ void mm_free(void *ptr)
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
 
-    // mm_check();
+    mm_check();
 }
 
 /*
@@ -227,7 +227,7 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
 
-    // mm_check();
+    mm_check();
     return newptr;
 }
 
@@ -368,51 +368,80 @@ static void remove_free_block(char *bp)
     }
 }
 
+// ==================== Heap Check functions ==================== //
+
+/* Check if a pointer is within the heap range */
+static int in_heap(void *ptr) {
+    return (ptr >= mem_heap_lo() && ptr <= mem_heap_hi());
+}
+
+/* Check if a pointer is aligned */
+static int aligned(void *ptr) {
+    return ((size_t)ptr % DSIZE == 0);
+}
+
 int mm_check(void)
 {
     // printf("mm_check\n");
     void *bp;
-    int count_freelist = 0;
-    int count_heap = 0;
 
-    // Check free list for consistency
+    // Check if every block in the free list is marked as free
     for (bp = freelist_head; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
-        count_freelist++;
-        // Check if the block is marked as free
-        if (GET_ALLOC(HDRP(bp))) {
-            printf("Error: Block in free list marked as allocated.\n");
+        if (GET_ALLOC(HDRP(bp)) != 0) {
+            printf("Error: Allocated block in the free list.\n");
             return 0;
         }
     }
 
-    // Check heap for consistency
+    // Check if there are contiguous free blocks that escaped coalescing
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        // Check if two contiguous blocks are free
         if (!GET_ALLOC(HDRP(bp)) && !GET_ALLOC(HDRP(NEXT_BLKP(bp)))) {
-            printf("Error: Two contiguous free blocks.\n");
+            printf("Error: Contiguous free blocks not coalesced.\n");
             return 0;
         }
+    }
 
-        // Count free blocks in the heap
+    // Check if every free block is actually in the free list
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
         if (!GET_ALLOC(HDRP(bp))) {
-            count_heap++;
+            void *fp;
+            int found = 0;
+            for (fp = freelist_head; fp != NULL; fp = NEXT_FREE_BLKP(fp)) {
+                if (fp == bp) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                printf("Error: Free block not in the free list.\n");
+                return 0;
+            }
         }
     }
 
-    // Check if the number of free blocks in the heap and free list match
-    if (count_heap != count_freelist) {
-        printf("Error: Free block count mismatch between heap and free list.\n");
-        return 0;
-    }
-
-    // Check for overlapping blocks and valid heap addresses
-    void *prev_bp = heap_listp;
-    for (bp = NEXT_BLKP(heap_listp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (bp <= prev_bp) {
-            printf("Error: Overlapping blocks or invalid heap address.\n");
+    // Check if pointers in the free list point to valid free blocks
+    for (bp = freelist_head; bp != NULL; bp = NEXT_FREE_BLKP(bp)) {
+        if (!in_heap(bp) || !aligned(bp)) {
+            printf("Error: Pointer in the free list is not a valid free block.\n");
             return 0;
         }
-        prev_bp = bp;
+    }
+
+    // Check if allocated blocks overlap
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (GET_ALLOC(HDRP(bp)) && GET_ALLOC(HDRP(NEXT_BLKP(bp))) &&
+            ((char *)bp + GET_SIZE(HDRP(bp)) > (char *)NEXT_BLKP(bp))) {
+            printf("Error: Allocated blocks overlap.\n");
+            return 0;
+        }
+    }
+
+    // Check if pointers in heap blocks point to valid heap addresses
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (!in_heap(bp) || !aligned(bp)) {
+            printf("Error: Pointer in heap block is not a valid heap address.\n");
+            return 0;
+        }
     }
 
     return 1;

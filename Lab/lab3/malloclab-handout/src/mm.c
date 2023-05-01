@@ -87,6 +87,7 @@ int mm_check(void);
 /* Global variables */
 static char *heap_listp = NULL;
 static char *freelist_head = NULL;
+static char *next_fit = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -106,6 +107,7 @@ int mm_init(void)
     PUT(heap_listp + (5 * WSIZE), PACK(0, 1));     /* Epilogue header */
 
     freelist_head = heap_listp + DSIZE;
+    next_fit = freelist_head;
 
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
@@ -253,6 +255,10 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
 
+    if ((next_fit) >= (char *)bp && (next_fit) < NEXT_BLKP(bp)) {
+        next_fit = bp;
+    }
+
     insert_free_block(bp);
     return bp;
 }
@@ -260,12 +266,17 @@ static void *coalesce(void *bp)
 // Find an appropriate free block in the free list
 static void *find_fit(size_t size)
 {
-    // printf("find_fit\n");
-    void *bp;
+    char *bp = next_fit;
 
-    for (bp = freelist_head; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREE_BLKP(bp)) {
-        if (GET_SIZE(HDRP(bp)) >= size) {
-            return bp;
+    for (next_fit = bp; GET_SIZE(HDRP(next_fit)) > 0; next_fit = NEXT_FREE_BLKP(next_fit)) {
+        if (!GET_ALLOC(HDRP(next_fit)) && GET_SIZE(HDRP(next_fit)) >= size) {
+            return next_fit;
+        }
+    }
+
+    for (next_fit = freelist_head; next_fit < bp; next_fit = NEXT_FREE_BLKP(next_fit)) {
+        if (!GET_ALLOC(HDRP(next_fit)) && GET_SIZE(HDRP(next_fit)) >= size) {
+            return next_fit;
         }
     }
 
@@ -290,6 +301,10 @@ static void place(void *bp, size_t asize)
     } else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+    }
+
+    if (next_fit == (char *)bp) {
+        next_fit = NEXT_BLKP(bp);
     }
 }
 

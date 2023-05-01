@@ -1,13 +1,18 @@
 /*
- * mm-naive.c - The fastest, least memory-efficient malloc package.
+ * mm.c - Explicit free list, first-fit memory allocator.
  * 
- * In this naive approach, a block is allocated by simply incrementing
- * the brk pointer.  A block is pure payload. There are no headers or
- * footers.  Blocks are never coalesced or reused. Realloc is
- * implemented directly using mm_malloc and mm_free.
- *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ * This allocator uses an explicit free list to keep track of free memory blocks.
+ * Each free block contains a header and footer, as well as pointers to the
+ * previous and next free blocks in the free list. Allocated blocks have a header
+ * and footer, but do not contain pointers to other blocks.
+ * 
+ * The free list is organized as a singly linked list, using a first-fit strategy
+ * to search for an appropriate block when allocating memory. When a block is
+ * freed, the allocator attempts to coalesce it with adjacent free blocks to form
+ * larger contiguous free blocks.
+ * 
+ * Each function in this allocator is preceded by a header comment that describes
+ * what the function does, its inputs, outputs, and any side effects.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,21 +94,26 @@ static char *heap_listp = NULL;
 static char *freelist_head = NULL;
 
 /* 
- * mm_init - initialize the malloc package.
+ * mm_init - Initialize the memory allocator.
+ * This function is responsible for setting up the initial empty heap and
+ * extending it with a free block of CHUNKSIZE bytes. It initializes the
+ * global pointers and creates the prologue and epilogue headers. Returns 0
+ * on successful initialization and -1 on failure.
  */
 int mm_init(void)
 {
     // printf("init\n");
+
     /* Create the initial empty heap */
     if ((heap_listp = mem_sbrk(6 * WSIZE)) == (void *)-1) {
         return -1;
     }
-    PUT(heap_listp, 0);                          /* Alignment padding */
+    PUT(heap_listp, 0);                                /* Alignment padding */
     PUT(heap_listp + (1 * WSIZE), PACK(2 * DSIZE, 1)); /* Prologue header */
-    PUT(heap_listp + (2 * WSIZE), (int)NULL);         /* Prev free block */
-    PUT(heap_listp + (3 * WSIZE), (int)NULL);         /* Next free block */
+    PUT(heap_listp + (2 * WSIZE), (int)NULL);          /* Prev free block */
+    PUT(heap_listp + (3 * WSIZE), (int)NULL);          /* Next free block */
     PUT(heap_listp + (4 * WSIZE), PACK(2 * DSIZE, 1)); /* Prologue footer */
-    PUT(heap_listp + (5 * WSIZE), PACK(0, 1));     /* Epilogue header */
+    PUT(heap_listp + (5 * WSIZE), PACK(0, 1));         /* Epilogue header */
 
     freelist_head = heap_listp + DSIZE;
 
@@ -117,12 +127,17 @@ int mm_init(void)
 }
 
 /* 
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
+ * mm_malloc - Allocate a block of memory.
+ * This function takes a requested size and rounds it up to the nearest
+ * multiple of the alignment. It then searches the free list for an appropriate
+ * free block using the first-fit strategy. If no suitable block is found, it
+ * extends the heap and allocates the block in the extended heap. Returns a
+ * pointer to the allocated block.
  */
 void *mm_malloc(size_t size)
 {
     // printf("malloc\n");
+
     size_t asize;
     size_t extendsize;
     char *bp;
@@ -153,11 +168,16 @@ void *mm_malloc(size_t size)
 }
 
 /*
- * mm_free - Freeing a block does nothing.
+ * mm_free - Free a previously allocated block of memory.
+ * This function frees a given block of memory by marking it as unallocated in
+ * the block header and footer. It then attempts to coalesce the newly freed
+ * block with adjacent free blocks to create larger contiguous free blocks.
+ * The coalesced block is inserted into the free list.
  */
 void mm_free(void *ptr)
 {
     // printf("free\n");
+
     size_t size = GET_SIZE(HDRP(ptr));
 
     PUT(HDRP(ptr), PACK(size, 0));
@@ -168,10 +188,19 @@ void mm_free(void *ptr)
 }
 
 /*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ * mm_realloc - Resize an allocated block of memory.
+ * This function resizes a given block of memory to a new size. If the new size
+ * is smaller than the current size, it shrinks the block and returns the same
+ * pointer. If the new size is larger than the current size, it allocates a new
+ * block of the requested size, copies the data from the old block to the new
+ * block, frees the old block, and returns a pointer to the new block. If the
+ * given pointer is NULL, it behaves like mm_malloc. If the new size is 0, it
+ * behaves like mm_free.
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    // printf("realloc\n");
+
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
@@ -197,13 +226,18 @@ void *mm_realloc(void *ptr, size_t size)
 
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
+
+    // mm_check();
     return newptr;
 }
 
-// words만큼 힙을 확장하고, 확장한 힙의 시작 주소를 반환한다.
+/*
+ * extend_heap - Extends the heap and initializes the new free block.
+ */
 static void *extend_heap(size_t words)
 {
     // printf("extend_heap\n");
+
     char *bp;
     size_t size;
 
@@ -222,9 +256,13 @@ static void *extend_heap(size_t words)
     return coalesce(bp);
 }
 
-// Coalesce adjacent free blocks
+/*
+ * coalesce - Coalesces the given block with adjacent free blocks.
+ */
 static void *coalesce(void *bp)
 {
+    // printf("coalesce\n");
+
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
@@ -257,7 +295,9 @@ static void *coalesce(void *bp)
     return bp;
 }
 
-// Find an appropriate free block in the free list
+/*
+ * find_fit - Finds the first-fit free block for the given size.
+ */
 static void *find_fit(size_t size)
 {
     // printf("find_fit\n");
@@ -272,7 +312,9 @@ static void *find_fit(size_t size)
     return NULL;
 }
 
-/* place - Place the requested block and remove it from the free list */
+/*
+ * place - Places a requested block and removes it from the free list.
+ */
 static void place(void *bp, size_t asize)
 {
     // printf("place\n");
@@ -293,6 +335,9 @@ static void place(void *bp, size_t asize)
     }
 }
 
+/*
+ * insert_free_block - Inserts a free block into the free list.
+ */
 static void insert_free_block(char *bp)
 {
     // printf("insert_free_block\n");
@@ -306,6 +351,9 @@ static void insert_free_block(char *bp)
     freelist_head = bp;
 }
 
+/*
+ * remove_free_block - Removes a free block from the free list.
+ */
 static void remove_free_block(char *bp)
 {
     // printf("remove_free_block\n");

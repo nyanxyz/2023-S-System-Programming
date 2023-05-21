@@ -17,31 +17,42 @@ static ssize_t write_pid_to_input(struct file *fp,
                                 loff_t *position)
 {
     pid_t input_pid;
+    char kernel_buffer[1024];
+    char temp_buffer[1024];
 
-    sscanf(user_buffer, "%u", &input_pid); // read input pid
-    curr = pid_task(find_get_pid(input_pid), PIDTYPE_PID); // find task_struct using input_pid
+    // copy_from_user: copy data from user space to kernel space
+    if (copy_from_user(kernel_buffer, user_buffer, length)) {
+        return -EFAULT;
+    }
+    sscanf(kernel_buffer, "%u", &input_pid); // read input pid
+
     // pid_task: input pid_struct and pid type, return task_struct
     // find_get_pid: input pid, return pid_struct
     // PIDTYPE_PID: PID represents a process
+    curr = pid_task(find_get_pid(input_pid), PIDTYPE_PID);
 
     if (!curr) {
         printk("Cannot find task_struct associated with pid %u\n", input_pid);
-        return -1;
+        return -EINVAL;
     }
 
     // initialize blob data
-    memset(data, 0, 1024 * sizeof(char));
+    memset(data, 0, 1024);
 
     // tracing process tree from input_pid to init(1) process
-    // make output format string: process_command (process_id)
+    while(curr) {
+        // make output format string: process_command (process_id)
 
-    // task_struct
-    // comm: process command
-    // pid: process id
-    // parent: parent process task_struct pointer
-    while (curr) {
-        sprintf(data + strlen(data), "%s (%d)\n", curr->comm, curr->pid);
-
+        // task_struct
+        // comm: process command
+        // pid: process id
+        // parent: parent process task_struct pointer
+        
+        // concatenate output string to data at the beginning
+        sprintf(temp_buffer, "%s (%d)\n", curr->comm, curr->pid);
+        strcat(temp_buffer, data);
+        strcpy(data, temp_buffer);
+        
         if (curr->pid != 1) {
             curr = curr->parent;
         } else {
@@ -96,11 +107,14 @@ static int __init dbfs_module_init(void)
         return -1;
     }
     
+    printk("dbfs_ptree module initialize done\n");
     return 0;
 }
 
 static void __exit dbfs_module_exit(void)
 {
+    // implement exit module code
+
     debugfs_remove_recursive(dir);
     kfree(blob);
     kfree(data);

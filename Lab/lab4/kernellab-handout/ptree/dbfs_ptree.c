@@ -41,13 +41,12 @@ static ssize_t write_pid_to_input(struct file *fp,
 
     // tracing process tree from input_pid to init(1) process
     while(curr) {
-        // make output format string: process_command (process_id)
-
         // task_struct
         // comm: process command
         // pid: process id
         // parent: parent process task_struct pointer
-        
+
+        // make output format string: process_command (process_id)
         // concatenate output string to data at the beginning
         sprintf(temp_buffer, "%s (%d)\n", curr->comm, curr->pid);
         strcat(temp_buffer, data);

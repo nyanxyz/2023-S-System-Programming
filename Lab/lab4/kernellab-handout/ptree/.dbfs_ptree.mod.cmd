@@ -1,0 +1,1 @@
+cmd_/home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/dbfs_ptree.mod := printf '%s\n'   dbfs_ptree.o | awk '!x[$$0]++ { print("/home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/"$$0) }' > /home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/dbfs_ptree.mod

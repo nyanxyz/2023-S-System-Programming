@@ -1,0 +1,1 @@
+cmd_/home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/Module.symvers := sed 's/ko$$/o/' /home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/modules.order | scripts/mod/modpost -m -a  -o /home/hyeonji/codes/system-programming/Lab/lab4/kernellab-handout/ptree/Module.symvers -e -i Module.symvers   -T -

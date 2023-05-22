@@ -24,6 +24,8 @@ static ssize_t read_output(struct file *fp,
     pid_t pid;
     unsigned long vaddr;
     unsigned long paddr;
+    
+    unsigned long mask = (1ul << 48) - 1;
 
     struct mm_struct *mm;
     pgd_t *pgd;
@@ -31,8 +33,6 @@ static ssize_t read_output(struct file *fp,
     pud_t *pud;
     pmd_t *pmd;
     pte_t *pte;
-
-    unsigned long mask = (1ul << 48) - 1;
 
     // copy_from_user: copy data from user space to kernel space
     if (copy_from_user(&pckt, user_buffer, length)) {

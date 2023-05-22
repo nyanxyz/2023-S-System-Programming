@@ -33,7 +33,6 @@ static ssize_t write_pid_to_input(struct file *fp,
     curr = pid_task(find_get_pid(input_pid), PIDTYPE_PID);
 
     if (!curr) {
-        printk("Cannot find task_struct associated with pid %u\n", input_pid);
         return -EINVAL;
     }
 

@@ -24,7 +24,7 @@ static ssize_t read_output(struct file *fp,
     pid_t pid;
     unsigned long vaddr;
     unsigned long paddr;
-    
+
     unsigned long mask = (1ul << 48) - 1;
 
     struct mm_struct *mm;
@@ -48,7 +48,6 @@ static ssize_t read_output(struct file *fp,
     task = pid_task(find_get_pid(pid), PIDTYPE_PID);
 
     if (!task) {
-        printk("Cannot find task_struct associated with pid %u\n", pid);
         return -EINVAL;
     }
 
@@ -56,31 +55,26 @@ static ssize_t read_output(struct file *fp,
 
     pgd = pgd_offset(mm, vaddr);
     if (pgd_none(*pgd) || pgd_bad(*pgd)) {
-        printk("pgd is none or bad\n");
         return -EINVAL;
     }
 
     p4d = p4d_offset(pgd, vaddr);
     if (p4d_none(*p4d) || p4d_bad(*p4d)) {
-        printk("p4d is none or bad\n");
         return -EINVAL;
     }
 
     pud = pud_offset(p4d, vaddr);
     if (pud_none(*pud) || pud_bad(*pud)) {
-        printk("pud is none or bad\n");
         return -EINVAL;
     }
 
     pmd = pmd_offset(pud, vaddr);
     if (pmd_none(*pmd) || pmd_bad(*pmd)) {
-        printk("pmd is none or bad\n");
         return -EINVAL;
     }
 
     pte = pte_offset_kernel(pmd, vaddr);
     if (pte_none(*pte)) {
-        printk("pte is none or bad\n");
         return -EINVAL;
     }
 

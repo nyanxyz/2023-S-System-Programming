@@ -25,11 +25,11 @@ static ssize_t read_output(struct file *fp,
     unsigned long vaddr;
 
     struct mm_struct *mm;
-    struct pgd_t *pgd;
-    struct p4d_t *p4d;
-    struct pud_t *pud;
-    struct pmd_t *pmd;
-    struct pte_t *pte;
+    pgd_t *pgd;
+    p4d_t *p4d;
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
 
     // copy_from_user: copy data from user space to kernel space
     if (copy_from_user(&pckt, user_buffer, length)) {

@@ -1,7 +1,9 @@
 {
-    "files.associations": {
-        "assert.h": "c",
-        "unistd.h": "c",
-        "module.h": "c"
-    }
+  "files.associations": {
+    "assert.h": "c",
+    "unistd.h": "c",
+    "module.h": "c",
+    "mm.h": "c",
+    "string.h": "c"
+  }
 }

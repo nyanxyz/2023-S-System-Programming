@@ -17,14 +17,14 @@ static ssize_t write_pid_to_input(struct file *fp,
                                 loff_t *position)
 {
     pid_t input_pid;
-    char kernel_buffer[1024];
+    char buffer[256];
     char temp_buffer[1024];
 
     // copy_from_user: copy data from user space to kernel space
-    if (copy_from_user(kernel_buffer, user_buffer, length)) {
+    if (copy_from_user(buffer, user_buffer, length)) {
         return -EFAULT;
     }
-    sscanf(kernel_buffer, "%u", &input_pid); // read input pid
+    sscanf(buffer, "%u", &input_pid); // read input pid
 
     // pid_task: input pid_struct and pid type, return task_struct
     // find_get_pid: input pid, return pid_struct
@@ -83,7 +83,7 @@ static int __init dbfs_module_init(void)
     // 3. struct dentry *parent: parent directory
     // 4. void *data: data to pass to file operations
     // 5. const struct file_operations *fops: file operations
-    inputdir = debugfs_create_file("input", 0666, dir, NULL, &dbfs_fops); // file to read input
+    inputdir = debugfs_create_file("input", 0777, dir, NULL, &dbfs_fops); // file to read input
     if (!inputdir) {
         printk("Cannot create input file\n");
         return -1;
@@ -100,7 +100,7 @@ static int __init dbfs_module_init(void)
     // 2. umode_t mode: file permission
     // 3. struct dentry *parent: parent directory
     // 4. struct debugfs_blob_wrapper *blob: blob to write
-    ptreedir = debugfs_create_blob("ptree", 0666, dir, blob); // file to write output
+    ptreedir = debugfs_create_blob("ptree", 0777, dir, blob); // file to write output
     if (!ptreedir) {
         printk("Cannot create ptree file\n");
         return -1;

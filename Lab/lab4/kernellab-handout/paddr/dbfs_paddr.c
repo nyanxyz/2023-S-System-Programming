@@ -14,8 +14,9 @@ static ssize_t read_output(struct file *fp,
                         size_t length,
                         loff_t *position)
 {
-    pid_t input_pid;
-    char kernel_buffer[1024];
+    struct packet pckt;
+    pid_t pid;
+    unsigned long vaddr;
 
     struct mm_struct *mm;
     struct pgd_t *pgd;
@@ -25,23 +26,62 @@ static ssize_t read_output(struct file *fp,
     struct pte_t *pte;
 
     // copy_from_user: copy data from user space to kernel space
-    if (copy_from_user(kernel_buffer, user_buffer, length)) {
+    if (copy_from_user(&pckt, user_buffer, length)) {
         return -EFAULT;
     }
-    sscanf(kernel_buffer, "%u", &input_pid); // read input pid
+
+    pid = pckt.pid;
+    vaddr = pckt.vaddr;
 
     // pid_task: input pid_struct and pid type, return task_struct
     // find_get_pid: input pid, return pid_struct
     // PIDTYPE_PID: PID represents a process
-    curr = pid_task(find_get_pid(input_pid), PIDTYPE_PID);
+    curr = pid_task(find_get_pid(pid), PIDTYPE_PID);
 
     if (!curr) {
-        printk("Cannot find task_struct associated with pid %u\n", input_pid);
+        printk("Cannot find task_struct associated with pid %u\n", pid);
         return -EINVAL;
     }
 
     mm = curr->mm;
-    pgd = pgd_offset(mm, mm->mmap->vm_start);
+
+    pgd = pgd_offset(mm, vaddr);
+    if (pgd_none(*pgd) || pgd_bad(*pgd)) {
+        printk("pgd is none or bad\n");
+        return -EINVAL;
+    }
+
+    p4d = p4d_offset(pgd, vaddr);
+    if (p4d_none(*p4d) || p4d_bad(*p4d)) {
+        printk("p4d is none or bad\n");
+        return -EINVAL;
+    }
+
+    pud = pud_offset(p4d, vaddr);
+    if (pud_none(*pud) || pud_bad(*pud)) {
+        printk("pud is none or bad\n");
+        return -EINVAL;
+    }
+
+    pmd = pmd_offset(pud, vaddr);
+    if (pmd_none(*pmd) || pmd_bad(*pmd)) {
+        printk("pmd is none or bad\n");
+        return -EINVAL;
+    }
+
+    pte = pte_offset_kernel(pmd, vaddr);
+    if (pte_none(*pte) || pte_bad(*pte)) {
+        printk("pte is none or bad\n");
+        return -EINVAL;
+    }
+
+    pckt.paddr = (pte_val(*pte) & PAGE_MASK) | (vaddr & ~PAGE_MASK);
+
+    if (copy_to_user(user_buffer, &pckt, sizeof(pckt))) {
+        return -EFAULT;
+    }
+
+    return sizeof(pckt);
 }
 
 static const struct file_operations dbfs_fops = {

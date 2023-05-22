@@ -9,6 +9,12 @@ MODULE_LICENSE("GPL");
 static struct dentry *dir, *output;
 static struct task_struct *task;
 
+struct packet {
+    pid_t pid;
+    unsigned long vaddr;
+    unsigned long paddr;
+};
+
 static ssize_t read_output(struct file *fp,
                         char __user *user_buffer,
                         size_t length,
@@ -43,7 +49,7 @@ static ssize_t read_output(struct file *fp,
         return -EINVAL;
     }
 
-    mm = curr->mm;
+    mm = task->mm;
 
     pgd = pgd_offset(mm, vaddr);
     if (pgd_none(*pgd) || pgd_bad(*pgd)) {

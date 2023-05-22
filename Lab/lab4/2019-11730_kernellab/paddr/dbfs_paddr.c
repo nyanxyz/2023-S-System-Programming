@@ -46,7 +46,6 @@ static ssize_t read_output(struct file *fp,
     // find_get_pid: input pid, return pid_struct
     // PIDTYPE_PID: PID represents a process
     task = pid_task(find_get_pid(pid), PIDTYPE_PID);
-
     if (!task) {
         return -EINVAL;
     }

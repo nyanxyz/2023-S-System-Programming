@@ -31,7 +31,6 @@ static ssize_t write_pid_to_input(struct file *fp,
     // find_get_pid: input pid, return pid_struct
     // PIDTYPE_PID: PID represents a process
     curr = pid_task(find_get_pid(input_pid), PIDTYPE_PID);
-
     if (!curr) {
         return -EINVAL;
     }

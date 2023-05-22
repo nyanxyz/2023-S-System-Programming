@@ -81,7 +81,11 @@ static ssize_t read_output(struct file *fp,
         return -EINVAL;
     }
 
-    pckt.paddr = (pte_val(*pte) & PAGE_MASK) | (vaddr & ~PAGE_MASK);
+    unsigned long paddr = (pte_val(*pte) & PAGE_MASK) | (vaddr & ~PAGE_MASK);
+    unsigned long bit_mask = (1UL << 49) - 1;
+    paddr &= bit_mask;
+
+    pckt.paddr = paddr;
 
     if (copy_to_user(user_buffer, &pckt, sizeof(pckt))) {
         return -EFAULT;

@@ -36,9 +36,9 @@ static ssize_t read_output(struct file *fp,
     // pid_task: input pid_struct and pid type, return task_struct
     // find_get_pid: input pid, return pid_struct
     // PIDTYPE_PID: PID represents a process
-    curr = pid_task(find_get_pid(pid), PIDTYPE_PID);
+    task = pid_task(find_get_pid(pid), PIDTYPE_PID);
 
-    if (!curr) {
+    if (!task) {
         printk("Cannot find task_struct associated with pid %u\n", pid);
         return -EINVAL;
     }

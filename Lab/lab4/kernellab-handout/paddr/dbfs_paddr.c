@@ -76,7 +76,7 @@ static ssize_t read_output(struct file *fp,
     }
 
     pte = pte_offset_kernel(pmd, vaddr);
-    if (pte_none(*pte) || pte_bad(*pte)) {
+    if (pte_none(*pte)) {
         printk("pte is none or bad\n");
         return -EINVAL;
     }

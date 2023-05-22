@@ -102,7 +102,7 @@ static int __init dbfs_module_init(void)
         return -1;
     }
 
-    output = debugfs_create_file("output", 0666, dir, NULL, &dbfs_fops);
+    output = debugfs_create_file("output", 0444, dir, NULL, &dbfs_fops);
     if (!output) {
         printk("Cannot create output file\n");
         return -1;

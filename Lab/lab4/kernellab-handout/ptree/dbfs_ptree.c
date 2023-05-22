@@ -83,7 +83,7 @@ static int __init dbfs_module_init(void)
     // 3. struct dentry *parent: parent directory
     // 4. void *data: data to pass to file operations
     // 5. const struct file_operations *fops: file operations
-    inputdir = debugfs_create_file("input", 0777, dir, NULL, &dbfs_fops); // file to read input
+    inputdir = debugfs_create_file("input", 0222, dir, NULL, &dbfs_fops); // file to read input
     if (!inputdir) {
         printk("Cannot create input file\n");
         return -1;
@@ -100,7 +100,7 @@ static int __init dbfs_module_init(void)
     // 2. umode_t mode: file permission
     // 3. struct dentry *parent: parent directory
     // 4. struct debugfs_blob_wrapper *blob: blob to write
-    ptreedir = debugfs_create_blob("ptree", 0777, dir, blob); // file to write output
+    ptreedir = debugfs_create_blob("ptree", 0444, dir, blob); // file to write output
     if (!ptreedir) {
         printk("Cannot create ptree file\n");
         return -1;

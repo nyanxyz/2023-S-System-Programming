@@ -23,6 +23,7 @@ static ssize_t read_output(struct file *fp,
     struct packet pckt;
     pid_t pid;
     unsigned long vaddr;
+    unsigned long paddr;
 
     struct mm_struct *mm;
     pgd_t *pgd;
@@ -30,6 +31,8 @@ static ssize_t read_output(struct file *fp,
     pud_t *pud;
     pmd_t *pmd;
     pte_t *pte;
+
+    unsigned long mask = (1ul << 48) - 1;
 
     // copy_from_user: copy data from user space to kernel space
     if (copy_from_user(&pckt, user_buffer, length)) {
@@ -81,9 +84,8 @@ static ssize_t read_output(struct file *fp,
         return -EINVAL;
     }
 
-    unsigned long paddr = (pte_val(*pte) & PAGE_MASK) | (vaddr & ~PAGE_MASK);
-    unsigned long bit_mask = (1UL << 49) - 1;
-    paddr &= bit_mask;
+    paddr = (pte_val(*pte) & PAGE_MASK) | (vaddr & ~PAGE_MASK);
+    paddr = paddr & mask;
 
     pckt.paddr = paddr;
 

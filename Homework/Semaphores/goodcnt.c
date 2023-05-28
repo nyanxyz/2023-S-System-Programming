@@ -2,12 +2,13 @@
 
 volatile int cnt = 0;
 sem_t mutex;
-Sem_init(&mutex, 0, 1);
 
 void *thread(void *vargp);
 
 int main(int argc, char **argv)
 {
+  Sem_init(&mutex, 0, 1);
+  
   int niters = atoi(argv[1]);
   pthread_t tid1, tid2;
 

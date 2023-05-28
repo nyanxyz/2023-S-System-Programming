@@ -1,6 +1,8 @@
 #include "csapp.h"
 
 volatile int cnt = 0;
+sem_t mutex;
+Sem_init(&mutex, 0, 1);
 
 void *thread(void *vargp);
 
@@ -38,8 +40,11 @@ void *thread(void *vargp)
 {
   int i, niters = *((int *)vargp);
 
-  for (i = 0; i < niters; i++)
+  for (i = 0; i < niters; i++) {
+    P(&mutex);
     cnt++;
+    V(&mutex);
+  }
   
   return NULL;
 }

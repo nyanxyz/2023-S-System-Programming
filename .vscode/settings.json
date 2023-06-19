@@ -5,6 +5,8 @@
     "module.h": "c",
     "mm.h": "c",
     "string.h": "c",
-    "csapp.h": "c"
+    "csapp.h": "c",
+    "socket.h": "c",
+    "type_traits": "c"
   }
 }

@@ -1,22 +1,18 @@
 #include "csapp.h"
-
-/* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
-#define MAX_OBJECT_SIZE 102400
+#include "cache.h"
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
 static const char *connection_hdr = "Connection: close\r\n";
 static const char *proxy_connection_hdr = "Proxy-Connection: close\r\n";
 
-struct http_header {
+typedef struct http_header {
     char *key;
     char *value;
     struct http_header *next;
-};
-typedef struct http_header http_header;
+} http_header;
 
-struct http_request {
+typedef struct http_request {
     char uri[MAXLINE];
     char path[MAXLINE];
     char version[MAXLINE];
@@ -25,8 +21,7 @@ struct http_request {
     char port[MAXLINE];
 
     http_header *extra_hdrs;
-};
-typedef struct http_request http_request;
+} http_request;
 
 void error(const char *msg);
 void *proxy_thread(void *vargp);
@@ -41,6 +36,8 @@ int main(int argc, char *argv[])
     struct sockaddr_in clientaddr;
     socklen_t clientlen = sizeof(clientaddr);
     pthread_t tid;
+
+    cache_init();
 
     // Check port number
     if (argc < 2) {
@@ -61,6 +58,8 @@ int main(int argc, char *argv[])
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
         Pthread_create(&tid, NULL, proxy_thread, connfdp);
     }
+
+    cache_free();
 
     return 0;
 }
@@ -184,20 +183,43 @@ int forward_request(http_request request)
     return clientfd;
 }
 
-void forward_response(int clientfd, int connfd)
+void forward_response(char* uri, int clientfd, int connfd)
 {
     printf("\nforward_response\n");
 
-    int n;
-    char buf[MAXLINE];
+    int n, size = 0;
+    char buf[MAXLINE], body[MAX_OBJECT_SIZE];
     rio_t rio;
+
+    memset(body, 0, sizeof(body));
     
     // Read response from server and forward to client
     Rio_readinitb(&rio, clientfd);
     while ((n = Rio_readnb(&rio, buf, MAXLINE)) != 0) {
+        size += n;
+        if (size <= MAX_OBJECT_SIZE) {
+            memcpy(body + size - n, buf, n);
+        }
         printf("%s", buf);
         Rio_writen(connfd, buf, n);
     }
+
+    printf("\nsize: %d\n", size);
+    if (size <= MAX_OBJECT_SIZE) {
+        cache_insert(uri, body, size);
+    }
+}
+
+void forward_cached_response(cache_entry *cached, int connfd)
+{
+    printf("\nforward_cached_response\n");
+
+    rio_t rio;
+
+    // Forward cached response to client
+    Rio_readinitb(&rio, connfd);
+    printf("%s", cached->value);
+    Rio_writen(connfd, cached->value, cached->size);
 }
 
 void *proxy_thread(void *vargp)
@@ -207,11 +229,17 @@ void *proxy_thread(void *vargp)
     Free(vargp);
 
     http_request request = parse_request(connfd);
-    int clientfd = forward_request(request);
-    forward_response(clientfd, connfd);
 
+    // Check if request is in cache
+    cache_entry *cached = cache_find(request.uri);
+    if (cached != NULL) {
+        forward_cached_response(cached, connfd);
+    } else {
+        int clientfd = forward_request(request);
+        forward_response(request.uri, clientfd, connfd);
+    }
+    
     Close(connfd);
-
     return NULL;
 }
 

@@ -31,6 +31,9 @@ typedef struct http_request http_request;
 void error(const char *msg);
 void *proxy_thread(void *vargp);
 
+// Helper functions
+char *trim(char *str);
+
 int main(int argc, char *argv[])
 {
     int listenfd;
@@ -208,4 +211,23 @@ void *proxy_thread(void *vargp)
     forward_response(clientfd, connfd);
 
     Close(connfd);
+
+    return NULL;
+}
+
+// ========================================================== //
+// ==================== Helper Functions ==================== //
+// ========================================================== //
+char* trim(char* str) {
+    while(isspace((unsigned char)*str)) str++;
+    
+    if(*str == 0)
+        return str;
+
+    char* end = str + strlen(str) - 1;
+    while(end > str && isspace((unsigned char)*end)) end--;
+
+    *(end+1) = 0;
+
+    return str;
 }

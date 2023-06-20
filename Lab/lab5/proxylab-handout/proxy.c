@@ -15,7 +15,6 @@ typedef struct http_header {
 typedef struct http_request {
     char uri[MAXLINE];
     char path[MAXLINE];
-    char version[MAXLINE];
     char host[MAXLINE];
     char hostname[MAXLINE];
     char port[MAXLINE];
@@ -75,6 +74,7 @@ http_request parse_request(int connfd)
 
     rio_t rio;
     char buf[MAXLINE];
+    char method[MAXLINE];
     http_request request;
     http_header *curr = NULL;
 
@@ -86,10 +86,16 @@ http_request parse_request(int connfd)
 
     Rio_readlineb(&rio, buf, MAXLINE);
     printf("%s", buf);
-    sscanf(buf, "GET %s %s", request.uri, request.version);
-    sscanf(request.uri, "http://%*[^/]%s", request.path);
+
+    sscanf(buf, "%*s %s %*s", request.uri);
+
+    sscanf(request.uri, "http://%[^/]%s", request.host, request.path);
     if (strcmp(request.path, "") == 0) {
         strcpy(request.path, "/");
+    }
+    sscanf(request.host, "%[^:]:%s", request.hostname, request.port);
+    if (strcmp(request.port, "") == 0) {
+        strcpy(request.port, "80");
     }
     
     while (Rio_readlineb(&rio, buf, MAXLINE) != 0) {
@@ -103,15 +109,8 @@ http_request parse_request(int connfd)
         char *key = trim(strtok(buf, ":"));
         char *value = trim(strtok(NULL, "\r\n"));
 
-        // If Host header is found, parse hostname and port
-        if (strcmp(key, "Host") == 0) {
-            sscanf(value, "%s", request.host);
-            sscanf(value, "%[^:]:%s", request.hostname, request.port);
-            if (strcmp(request.port, "") == 0) {
-                strcpy(request.port, "80");
-            }
         // Ignore headers
-        } else if (strcmp(key, "User-Agent") == 0 || strcmp(key, "Connection") == 0 || strcmp(key, "Proxy-Connection") == 0) {
+        if (strcmp(key, "Host") == 0 || strcmp(key, "User-Agent") == 0 || strcmp(key, "Connection") == 0 || strcmp(key, "Proxy-Connection") == 0) {
             continue;
         // Add extra header to linked list
         } else {
